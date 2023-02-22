@@ -129,9 +129,13 @@ func (r *responseWriter) WriteHeader(statusCode int) {
 			cookie.Path = prefixPath(cookie.Path, r.pathPrefix)
 		}
 		// rewrite the path
-		cookie.Path = handleRewrites(cookie.Path, r.pathRewrites)
+		if len(r.pathRewrites) > 0 {
+			cookie.Path = handleRewrites(cookie.Path, r.pathRewrites)
+		}
 		// rewrite the domain
-		cookie.Domain = handleRewrites(cookie.Domain, r.domainRewrites)
+		if len(r.domainRewrites) > 0 {
+			cookie.Domain = handleRewrites(cookie.Domain, r.domainRewrites)
+		}
 
 		http.SetCookie(r, cookie)
 	}
@@ -143,9 +147,8 @@ func prefixPath(path string, prefix string) string {
 	if path == "/" {
 		// prevent trailing /
 		return "/" + prefix
-	} else {
-		return "/" + prefix + path
 	}
+	return "/" + prefix + path
 }
 
 func handleRewrites(value string, rewrites []rewrite) string {

@@ -63,22 +63,137 @@ func TestServeHttp(t *testing.T) {
 				"anotherHeader": {"Path=/"},
 			},
 		},
+		{
+			desc: "Replace foo by bar in path",
+			pathRewrites: []Rewrite{
+				{
+					Regex:       "foo",
+					Replacement: "bar",
+				},
+			},
+			reqHeader: map[string][]string{
+				"set-cookie":    {"someName=someValue; Path=/foo"},
+				"anotherHeader": {"Path=/"},
+			},
+			expRespHeader: map[string][]string{
+				"set-cookie":    {"someName=someValue; Path=/bar"},
+				"anotherHeader": {"Path=/"},
+			},
+		},
+		{
+			desc: "Replace foo by bar in not present path",
+			pathRewrites: []Rewrite{
+				{
+					Regex:       "foo",
+					Replacement: "bar",
+				},
+			},
+			reqHeader: map[string][]string{
+				"set-cookie":    {"someName=someValue; Domain=www.foo.com"},
+				"anotherHeader": {"Path=/"},
+			},
+			expRespHeader: map[string][]string{
+				"set-cookie":    {"someName=someValue; Domain=www.foo.com"},
+				"anotherHeader": {"Path=/"},
+			},
+		},
+		{
+			desc: "Remove leading subpath",
+			pathRewrites: []Rewrite{
+				{
+					Regex:       "^/bar/foo(.+)$",
+					Replacement: "/foo$1",
+				},
+			},
+			reqHeader: map[string][]string{
+				"set-cookie":    {"someName=someValue; Path=/bar/foo/something"},
+				"anotherHeader": {"Path=/"},
+			},
+			expRespHeader: map[string][]string{
+				"set-cookie":    {"someName=someValue; Path=/foo/something"},
+				"anotherHeader": {"Path=/"},
+			},
+		},
+		{
+			desc: "Add leading subpath",
+			pathRewrites: []Rewrite{
+				{
+					Regex:       "^/foo(.+)$",
+					Replacement: "/bar/foo$1",
+				},
+			},
+			reqHeader: map[string][]string{
+				"set-cookie":    {"someName=someValue; Path=/foo/something"},
+				"anotherHeader": {"Path=/"},
+			},
+			expRespHeader: map[string][]string{
+				"set-cookie":    {"someName=someValue; Path=/bar/foo/something"},
+				"anotherHeader": {"Path=/"},
+			},
+		},
+		{
+			desc: "Replace foo by bar in domain",
+			domainRewrites: []Rewrite{
+				{
+					Regex:       "foo",
+					Replacement: "bar",
+				},
+			},
+			reqHeader: map[string][]string{
+				"set-cookie":    {"someName=someValue; Domain=www.foo.com"},
+				"anotherHeader": {"Path=/"},
+			},
+			expRespHeader: map[string][]string{
+				"set-cookie":    {"someName=someValue; Domain=www.bar.com"},
+				"anotherHeader": {"Path=/"},
+			},
+		},
+		{
+			desc: "Replace foo by bar in not present domain",
+			domainRewrites: []Rewrite{
+				{
+					Regex:       "foo",
+					Replacement: "bar",
+				},
+			},
+			reqHeader: map[string][]string{
+				"set-cookie":    {"someName=someValue"},
+				"anotherHeader": {"Path=/"},
+			},
+			expRespHeader: map[string][]string{
+				"set-cookie":    {"someName=someValue"},
+				"anotherHeader": {"Path=/"},
+			},
+		},
+		{
+			desc: "Remove subdomain",
+			domainRewrites: []Rewrite{
+				{
+					Regex:       "^subdomain.foo.(.+)$",
+					Replacement: "foo.$1",
+				},
+			},
+			reqHeader: map[string][]string{
+				"set-cookie":    {"someName=someValue; Domain=subdomain.foo.bar"},
+				"anotherHeader": {"Path=/"},
+			},
+			expRespHeader: map[string][]string{
+				"set-cookie":    {"someName=someValue; Domain=foo.bar"},
+				"anotherHeader": {"Path=/"},
+			},
+		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.desc, func(t *testing.T) {
-			pathConfig := pathConfig{
-				Prefix:   test.pathPrefix,
-				Rewrites: test.pathRewrites,
-			}
-
-			domainConfig := domainConfig{
-				Rewrites: test.domainRewrites,
-			}
-
 			config := &Config{
-				PathConfig:   pathConfig,
-				DomainConfig: domainConfig,
+				PathConfig: pathConfig{
+					Prefix:   test.pathPrefix,
+					Rewrites: test.pathRewrites,
+				},
+				DomainConfig: domainConfig{
+					Rewrites: test.domainRewrites,
+				},
 			}
 
 			next := func(rw http.ResponseWriter, req *http.Request) {
@@ -90,7 +205,7 @@ func TestServeHttp(t *testing.T) {
 				rw.WriteHeader(http.StatusOK)
 			}
 
-			pathPrefix, err := New(context.Background(), http.HandlerFunc(next), config, "prefixCookiePath")
+			proxyCookiePlugin, err := New(context.Background(), http.HandlerFunc(next), config, "proxyCookie")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -98,7 +213,7 @@ func TestServeHttp(t *testing.T) {
 			recorder := httptest.NewRecorder()
 			req := httptest.NewRequest(http.MethodGet, "/", nil)
 
-			pathPrefix.ServeHTTP(recorder, req)
+			proxyCookiePlugin.ServeHTTP(recorder, req)
 			for k, expected := range test.expRespHeader {
 				values := recorder.Header().Values(k)
 
