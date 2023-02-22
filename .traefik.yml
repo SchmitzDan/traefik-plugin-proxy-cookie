@@ -1,0 +1,13 @@
+displayName: Proxy Cookie
+type: middleware
+import: github.com/SchmitzDan/traefik-plugin-proxy-cookie
+
+summary: 'Modify the domain or path of a cookie in the response.'
+
+testData:
+  domain:
+    rewrites:
+      - regex: "^subdomain.foo.(.+)$"
+        replacement: "foo.$1"
+    path:
+      prefix: "foo"
