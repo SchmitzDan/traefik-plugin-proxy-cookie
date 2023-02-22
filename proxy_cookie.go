@@ -143,7 +143,7 @@ func (r *responseWriter) WriteHeader(statusCode int) {
 	r.writer.WriteHeader(statusCode)
 }
 
-func prefixPath(path string, prefix string) string {
+func prefixPath(path, prefix string) string {
 	if path == "/" {
 		// prevent trailing /
 		return "/" + prefix
