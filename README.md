@@ -1,8 +1,7 @@
-# Cookie Path Prefixer
+# Proxy Cookie Plugin
 
-Cookie Path Prefixer is a middleware plugin for [Traefik](https://traefik.io) which adds a prefix to the path of a cookie in the response. If no path is defined in the cookie, a new path constructed from the prefix will be set.
+Proxy Cookie Plugin is a middleware plugin for [Traefik](https://traefik.io) which adds the functionylity of the proxy_cookie directives known from NGINX to Traefik.
 
-[![Build Status](https://github.com/SchmitzDan/traefik-plugin-cookie-path-prefix/workflows/Main/badge.svg?branch=main)](https://github.com/SchmitzDan/traefik-plugin-cookie-path-prefix/actions)
 
 ## Configuration
 
@@ -11,15 +10,15 @@ Cookie Path Prefixer is a middleware plugin for [Traefik](https://traefik.io) wh
 ```yaml
 experimental:
   plugins:
-    cookiePathPrefix:
-      modulename: "github.com/SchmitzDan/traefik-plugin-cookie-path-prefix"
-      version: "v0.0.3" #replace with newest version
+    proxyCookie:
+      modulename: "github.com/SchmitzDan/traefik-plugin-proxy-cookie"
+      version: "v0.0.x" #replace with newest version
 ```
 
 ### Dynamic
 
 To configure the  plugin you should create a [middleware](https://docs.traefik.io/middlewares/overview/) in your dynamic configuration as explained [here](https://docs.traefik.io/middlewares/overview/). 
-The following example creates and uses the cookie path prefix middleware plugin to add the prefix "/foo" to the cookie paths:
+The following example creates and uses the plugin to add the prefix "/foo" to the cookie paths and change the cookie domain from "subdomain.foo.*" to "foo.*":
 
 ```yaml
 http:
@@ -28,17 +27,24 @@ http:
       rule: "Host(`localhost`)"
       service: "my-service"
       middlewares : 
-        - "cookiePathPrefix"
+        - "proxyCookie"
   services:
     my-service:
       loadBalancer:
         servers:
           - url: "http://127.0.0.1"
   middlewares:
-    cookiePathPrefix:
+    proxyCookie:
       plugin:
-        cookiePathPrefix:
-          prefix: "foo"
+        proxyCookie:
+          domain:
+            rewrites:
+              - regex: "^subdomain.foo.(.+)$"
+                replacement: "foo.$1"
+          path:
+            prefix: "foo"
 ```
 
 Configuration can also be set via toml or docker labels.
+
+You can also define a set of rewrites for the path. If both, a prefix and one or more rewrites is defined for the path, the path will be prefixed first and afterwords the rewrites are applied to the path.
