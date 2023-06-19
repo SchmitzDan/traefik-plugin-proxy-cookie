@@ -2,8 +2,10 @@
 package traefik_plugin_proxy_cookie //nolint
 
 import (
+	"bufio"
 	"context"
 	"fmt"
+	"net"
 	"net/http"
 	"regexp"
 )
@@ -156,4 +158,19 @@ func handleRewrites(value string, rewrites []rewrite) string {
 		value = rewrite.regex.ReplaceAllString(value, rewrite.replacement)
 	}
 	return value
+}
+
+func (r *responseWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	hijacker, ok := r.writer.(http.Hijacker)
+	if !ok {
+		return nil, nil, fmt.Errorf("%T is not a http.Hijacker", r.writer)
+	}
+
+	return hijacker.Hijack()
+}
+
+func (r *responseWriter) Flush() {
+	if flusher, ok := r.writer.(http.Flusher); ok {
+		flusher.Flush()
+	}
 }
